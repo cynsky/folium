@@ -38,9 +38,11 @@ def initialize_notebook():
     lib_css = ENV.get_template('ipynb_init_css.html')
     lib_js = ENV.get_template('ipynb_init_js.html')
     leaflet_dvf = ENV.get_template('leaflet-dvf.markers.min.js')
+    leaflet_ellipse = ENV.get_template('l.ellipse.min.js')
 
     display(HTML(lib_css.render()))
-    display(HTML(lib_js.render({'leaflet_dvf': leaflet_dvf.render()})))
+    display(HTML(lib_js.render({'leaflet_dvf': leaflet_dvf.render(),
+				'leaflet_ellipse': leaflet_ellipse.render()})))
 
 
 def iter_obj(type):
@@ -575,6 +577,66 @@ class Map(object):
                                                              popup_out,
                                                              add_mark))
 
+    @iter_obj('ellipse')
+    def ellipse_marker(self, location=None, radii=[500,500], tilt=0.0, popup=None,
+                      line_color='black', fill_color='black',
+                      fill_opacity=0.6, popup_width=300):
+        """Create a ellipse marker on the map, with optional popup text
+        or Vincent visualization.
+
+        Parameters
+        ----------
+        location: tuple or list, default None
+            Latitude and Longitude of Marker (Northing, Easting)
+        radii: tuple or list, default [500,500]
+	    Semi major and semi minor axes
+	tilt: float
+	    The rotation of the ellipse in degrees from west
+        popup: string or tuple, default 'Pop Text'
+            Input text or visualization for object. Can pass either text,
+            or a tuple of the form (Vincent object, 'vis_path.json')
+            It is possible to adjust the width of text/HTML popups
+            using the optional keywords `popup_width` (default is 300px).
+        line_color: string, default black
+            Line color. Can pass hex value here as well.
+        fill_color: string, default black
+            Fill color. Can pass hex value here as well.
+        fill_opacity: float, default 0.6
+            Ellipse fill opacity
+
+        Returns
+        -------
+        Ellipse names and HTML in obj.template_vars
+
+        Example
+        -------
+        >>>map.ellipse_marker(location=[45.5, -122.3],
+                             radii=[500.0,570.0], tilt=0.0, popup='Portland, OR')
+        >>>map.ellipse_marker(location=[45.5, -122.3],
+                             radii=[500.0, 570.0], tilt = 0.0, popup=(bar_chart, 'bar_data.json'))
+
+        """
+        count = self.mark_cnt['ellipse']
+
+        ellipse_temp = self.env.get_template('ellipse_marker.js')
+
+        ellipse = ellipse_temp.render({'ellipse': 'ellipse_' + str(count),
+                                     'semi_major': radii[0],
+                                     'semi_minor': radii[1],
+                                     'lat': location[0], 'lon': location[1],
+                                     'tilt': tilt,
+                                     'line_color': line_color,
+                                     'fill_color': fill_color,
+                                     'fill_opacity': fill_opacity})
+
+        popup_out = self._popup_render(popup=popup, mk_name='ellipse_',
+                                       count=count, width=popup_width)
+
+        add_mark = 'map.addLayer(ellipse_{0})'.format(count)
+
+        self.template_vars.setdefault('markers', []).append((ellipse,
+                                                             popup_out,
+                                                             add_mark))
     @iter_obj('polygon')
     def polygon_marker(self, location=None, line_color='black', line_opacity=1,
                        line_weight=2, fill_color='blue', fill_opacity=1,
@@ -737,7 +799,7 @@ class Map(object):
         if 'fit_bounds' in self.template_vars:
             return
         # Get count for each feature type
-        ft_names = ["marker", "line", "circle", "polygon", "multiline"]
+        ft_names = ["marker", "line", "circle", "polygon", "multiline", "ellipse"]
         ft_names = [i for i in ft_names if i in self.mark_cnt]
 
         # Make a comprehensive list of all the features we want to fit
